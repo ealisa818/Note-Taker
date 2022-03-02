@@ -1,53 +1,45 @@
-const fs = require("fs");
-const path = require("path");
 const util = require("util");
-const express = require("express");
-const app = express();
-
+const fs = require("fs");
+// This package will be used to generate our unique ids. https://www.npmjs.com/package/uuid
+const { v4: uuidv4 } = require("uuid");
+const readFileAsync = util.promisify(fs.readFile);
 const writeFileAsync = util.promisify(fs.writeFile);
-const readFileAsync = util.promisify(fs.writeFile);
-
 class Store {
-    constructor() {
-        this.lastId = 0;
-
-    };
-    write(note) {
-        return writeFileAsync(path.join(__dirname, "db.json"))
-    };
-    read() {
-        return readFileAsync(path.joing(_dirname, "db.json"))
-    };
-}
-
-getNotes() {
-    return this.read().then(notes => {
-        let parsedNotes = JSON.parse(notes);
-        console.log(parsedNotes);
-        return parsedNotes;
+  read() {
+    return readFileAsync("db/db.json", "utf8");
+  }
+  write(note) {
+    return writeFileAsync("db/db.json", JSON.stringify(note));
+  }
+  getNotes() {
+    return this.read().then((notes) => {
+      let parsedNotes;
+      // If notes isn't an array or can't be turned into one, send back a new empty array
+      try {
+        parsedNotes = [].concat(JSON.parse(notes));
+      } catch (err) {
+        parsedNotes = [];
+      }
+      return parsedNotes;
     });
-};
-addNote(newNote) {
-    return this.getNotes().then(notes => {
-        const newNoteList = [notes, newNote];
-        console.log(newNoteList);
-    })
-};
-
-deleteNote(title) {
-    return this.getNotes()
-    .then(notes => {
-        for(var i = 0; i < notes.lenght; i++)
-            if (notes[i].title===title) {
-                notes.splice(i, 1);
-                break;
-            }
+  }
+  addNote(note) {
+    const { title, text } = note;
+    if (!title || !text) {
+      throw new Error("Note 'title' and 'text' cannot be blank");
     }
-    this.write(notes);
-
-    const store = new Store();
-
-    module.exports = store;
-    )
-
+    // Add a unique id to the note using uuid package
+    const newNote = { title, text, id: uuidv4() };
+    // Get all notes, add the new note, write all the updated notes, return the newNote
+    return this.getNotes()
+      .then((notes) => [...notes, newNote])
+      .then((updatedNotes) => this.write(updatedNotes))
+      .then(() => newNote);
+  }
+  removeNote(id) {
+    // Get all notes, remove the note with the given id, write the filtered notes
+    return this.getNotes()
+      .then((notes) => notes.filter((note) => note.id !== id))
+      .then((filteredNotes) => this.write(filteredNotes));
+  }
 }
