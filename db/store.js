@@ -43,3 +43,5 @@ class Store {
       .then((filteredNotes) => this.write(filteredNotes));
   }
 }
+
+module.exports=new Store();
